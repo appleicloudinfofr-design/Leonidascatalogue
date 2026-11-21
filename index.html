@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#101b32"><title>Leonidas Tanger - Catalogue 2027</title>
+<style>
+:root{--navy:#101b32;--gold:#c9a45c;--cream:#f6f1e7}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:var(--navy);color:#fff;font-family:Arial,sans-serif;overflow:hidden}body{display:flex;flex-direction:column}.top{height:62px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #ffffff20;background:#0b1426}.brand{font-family:Georgia,serif;letter-spacing:1.5px;color:var(--gold);font-size:15px}.sub{font-size:10px;letter-spacing:2px;color:#e9dfca;margin-top:4px}.actions{display:flex;gap:8px}.btn{border:1px solid #c9a45c88;background:transparent;color:#f4dfb3;border-radius:20px;padding:8px 12px;font-size:12px}.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:12px 8px 6px;position:relative}.flip-wrap{width:min(96vw,1100px);height:min(78vh,760px);display:flex;align-items:center;justify-content:center}.flipbook{margin:auto;transform-origin:center center;touch-action:none;will-change:transform}.page{background:#fff;overflow:hidden;box-shadow:0 8px 28px #0007}.page canvas{width:100%;height:100%;display:block;object-fit:contain}.loading{position:absolute;text-align:center;color:#f4dfb3;font-size:14px}.spinner{width:30px;height:30px;border:3px solid #ffffff30;border-top-color:var(--gold);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}@keyframes spin{to{transform:rotate(360deg)}}.bottom{height:56px;flex:none;display:flex;align-items:center;justify-content:center;gap:18px;border-top:1px solid #ffffff20;background:#0b1426}.nav{border:0;background:transparent;color:var(--gold);font-size:24px;padding:4px 12px}.counter{font-size:13px;color:#f5e7c9;min-width:75px;text-align:center}.hint{position:absolute;bottom:8px;right:12px;font-size:10px;color:#ffffff80}.error{color:#ffd7d7;max-width:90%;line-height:1.5}.hidden{display:none!important}.fullscreen-exit{display:none;position:fixed;z-index:10001;top:12px;right:12px;border:1px solid #c9a45c88;background:#0b1426;color:#f4dfb3;border-radius:22px;padding:9px 14px;font-size:13px}.fullscreen-fallback .top,.fullscreen-fallback .bottom,.fullscreen-fallback .hint{display:none!important}.fullscreen-fallback .stage{position:fixed;inset:0;z-index:9999;width:100vw;height:100vh;height:100dvh;padding:0;background:var(--navy)}.fullscreen-fallback .flip-wrap{width:100vw;height:100vh;height:100dvh;max-height:none}.fullscreen-fallback .fullscreen-exit{display:block}@media(max-width:600px){.top{height:56px;padding:0 10px}.brand{font-size:12px}.sub{font-size:8px}.btn{padding:7px 9px;font-size:11px}.stage{padding:8px 0}.flip-wrap{width:100vw;height:76vh}.bottom{height:52px}.hint{display:none}}
+</style>
+</head>
+<body>
+<header class="top"><div><div class="brand">LEONIDAS TANGER</div><div class="sub">CATALOGUE 2027</div></div><div class="actions"><button class="btn" id="thumbBtn">Go to page</button><button class="btn" id="fullBtn">Full screen</button></div></header>
+<main class="stage"><button class="fullscreen-exit" id="exitFullBtn" type="button">✕ Exit full screen</button><div class="loading" id="loading"><div class="spinner"></div><div>Preparing your catalogue…</div></div><div class="flip-wrap"><div id="flipbook" class="flipbook"></div></div><div id="error" class="loading error hidden"></div></main>
+<footer class="bottom"><button class="nav" id="prev" aria-label="Previous page">‹</button><div class="counter" id="counter">— / —</div><button class="nav" id="next" aria-label="Next page">›</button></footer>
+<div class="hint">Swipe or tap the page corners to turn pages</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
+<script>
+(async()=>{
+ const loading=document.getElementById('loading'), error=document.getElementById('error'), host=document.getElementById('flipbook'), counter=document.getElementById('counter');
+ try{
+  if(!window.pdfjsLib) throw new Error('PDF viewer library could not load. Please refresh the page.');
+  if(!window.St||!window.St.PageFlip) throw new Error('Page-turning library could not load. Please refresh the page.');
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const pdf=await pdfjsLib.getDocument({url:'catalogue.pdf'}).promise;
+  const pages=[];
+  for(let n=1;n<=pdf.numPages;n++){
+   const p=await pdf.getPage(n), vp=p.getViewport({scale:1});
+   const ratio=vp.width/vp.height;
+   const el=document.createElement('div');el.className='page';el.style.aspectRatio=ratio;
+   const canvas=document.createElement('canvas');
+   const maxW=Math.min(1400,Math.max(900,window.devicePixelRatio*1100));
+   const scale=Math.min(2.2,maxW/vp.width);
+   const renderVp=p.getViewport({scale});canvas.width=Math.ceil(renderVp.width);canvas.height=Math.ceil(renderVp.height);
+   await p.render({canvasContext:canvas.getContext('2d',{alpha:false}),viewport:renderVp}).promise;
+   el.appendChild(canvas);pages.push(el);
+   loading.querySelector('div:last-child').textContent=`Preparing catalogue… ${n} / ${pdf.numPages}`;
+  }
+  const first=pages[0].querySelector('canvas');
+  const pageW=Math.min(520,Math.round(first.width/Math.min(2.2,Math.max(.1,window.devicePixelRatio))));
+  const pageH=Math.round(pageW*first.height/first.width);
+  const flip=new St.PageFlip(host,{width:pageW,height:pageH,size:'stretch',minWidth:260,maxWidth:900,minHeight:340,maxHeight:1200,drawShadow:true,flippingTime:650,usePortrait:true,startPage:0, autoSize:true,showCover:true,mobileScrollSupport:false,swipeDistance:30,clickEventForward:true, useMouseEvents:true});
+  flip.loadFromHTML(pages);
+  const update=()=>counter.textContent=`${flip.getCurrentPageIndex()+1} / ${pdf.numPages}`;
+  flip.on('flip',update);flip.on('init',update);document.getElementById('prev').onclick=()=>flip.flipPrev();document.getElementById('next').onclick=()=>flip.flipNext();
+  const fullBtn=document.getElementById('fullBtn');
+  const setFallbackFullscreen=on=>{document.body.classList.toggle('fullscreen-fallback',on);fullBtn.textContent=on?'Exit full screen':'Full screen';};
+  const enterFullscreen=async()=>{
+   if(document.fullscreenElement){await document.exitFullscreen();return;}
+   if(document.body.classList.contains('fullscreen-fallback')){setFallbackFullscreen(false);return;}
+   if(document.documentElement.requestFullscreen){
+    try{await document.documentElement.requestFullscreen();fullBtn.textContent='Exit full screen';return;}catch(_){/* iPhone Safari may not allow element fullscreen */}
+   }
+   setFallbackFullscreen(true);
+  };
+  fullBtn.addEventListener('click',enterFullscreen);
+  document.getElementById('exitFullBtn').addEventListener('click',()=>setFallbackFullscreen(false));
+  document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&!document.body.classList.contains('fullscreen-fallback'))fullBtn.textContent='Full screen';});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')setFallbackFullscreen(false);});
+  document.getElementById('thumbBtn').onclick=()=>{const n=prompt('Enter page number (1–'+pdf.numPages+')');if(n&&Number.isFinite(+n)&&+n>=1&&+n<=pdf.numPages)flip.flip(+n-1)};
+  // Touch navigation: page-flip gestures work at 1x; at zoom > 1, one finger pans.
+  let pinchStart=0, pinchBase=1, pinchScale=1, pinching=false, panning=false;
+  let panStartX=0, panStartY=0, panBaseX=0, panBaseY=0, panX=0, panY=0;
+  const distance=(a,b)=>Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+  const clampPan=()=>{
+   const r=host.getBoundingClientRect();
+   const maxX=Math.max(0,(r.width*(pinchScale-1))/2+24);
+   const maxY=Math.max(0,(r.height*(pinchScale-1))/2+24);
+   panX=Math.max(-maxX,Math.min(maxX,panX));panY=Math.max(-maxY,Math.min(maxY,panY));
+  };
+  const applyZoom=()=>{clampPan();host.style.transform=`translate3d(${panX}px,${panY}px,0) scale(${pinchScale})`;};
+  host.addEventListener('touchstart',e=>{
+   if(e.touches.length===2){pinching=true;panning=false;pinchStart=distance(e.touches[0],e.touches[1]);pinchBase=pinchScale;e.preventDefault();e.stopImmediatePropagation();}
+   else if(e.touches.length===1&&pinchScale>1.02){panning=true;panStartX=e.touches[0].clientX;panStartY=e.touches[0].clientY;panBaseX=panX;panBaseY=panY;e.preventDefault();e.stopImmediatePropagation();}
+  },{passive:false,capture:true});
+  host.addEventListener('touchmove',e=>{
+   if(pinching&&e.touches.length===2){const d=distance(e.touches[0],e.touches[1]);pinchScale=Math.max(1,Math.min(3,pinchBase*d/Math.max(1,pinchStart)));if(pinchScale===1){panX=0;panY=0;}applyZoom();e.preventDefault();e.stopImmediatePropagation();}
+   else if(panning&&e.touches.length===1){panX=panBaseX+e.touches[0].clientX-panStartX;panY=panBaseY+e.touches[0].clientY-panStartY;applyZoom();e.preventDefault();e.stopImmediatePropagation();}
+  },{passive:false,capture:true});
+  const finishTouch=e=>{if(e.touches.length<2)pinching=false;if(e.touches.length===0)panning=false;if(pinchScale<=1.02){pinchScale=1;panX=0;panY=0;host.style.transform='';}};
+  host.addEventListener('touchend',finishTouch,{passive:true,capture:true});
+  host.addEventListener('touchcancel',finishTouch,{passive:true,capture:true});
+  loading.classList.add('hidden');update();
+ }catch(e){loading.classList.add('hidden');error.classList.remove('hidden');error.textContent='Could not open catalogue.pdf. Make sure it is next to index.html in the GitHub repository. '+e.message;}
+})();
+</script>
+</body></html>
