@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#10264f">
+<title>Leonidas Tanger | Catalogue 2027</title>
+<style>
+:root{--navy:#10264f;--gold:#c5a46d;--cream:#f7f4ed}
+*{box-sizing:border-box}
+body{margin:0;background:var(--cream);color:#17233b;font-family:Arial,sans-serif}
+header{background:var(--navy);color:white;text-align:center;padding:22px 12px 18px;border-bottom:4px solid var(--gold)}
+.brand{font-family:Georgia,serif;font-size:clamp(27px,5vw,42px);letter-spacing:3px}
+.sub{font-size:11px;letter-spacing:2px;color:#e5d4b2;margin-top:6px}
+main{max-width:1000px;margin:22px auto;padding:0 14px}
+h1{text-align:center;font:30px Georgia,serif;color:var(--navy);margin:22px 0 12px}
+.toolbar{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:12px 0 18px}
+button{background:var(--navy);color:white;border:0;border-radius:5px;padding:11px 16px;font-size:15px;cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+#counter{font-size:14px;color:#5c6472;min-width:90px;text-align:center}
+.viewer{width:100%;min-height:45vh;display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:0 2px}
+canvas{display:block;max-width:none;box-shadow:0 8px 30px #17233b20;background:white}
+.status{text-align:center;color:#697080;font-size:13px;margin:12px}
+footer{text-align:center;color:#7a7a7a;font-size:12px;padding:20px}
+.zoom-label{font-size:13px;color:#5c6472;min-width:48px;text-align:center}
+@media(max-width:600px){main{margin:12px auto;padding:0 10px}.viewer{min-height:35vh;justify-content:flex-start}.toolbar{gap:8px}button{padding:10px 12px;font-size:14px}}
+</style>
+</head>
+<body>
+<header><div class="brand">LEONIDAS TANGER</div><div class="sub">MAÎTRE CHOCOLATIER · DEPUIS 1913</div></header>
+<main>
+<h1>Catalogue 2027</h1>
+<div class="toolbar"><button id="prev" disabled>‹ Précédent</button><span id="counter">Page 1</span><button id="next" disabled>Suivant ›</button></div>
+<div class="toolbar" aria-label="Zoom du catalogue"><button id="zoomOut" type="button" disabled>−</button><span class="zoom-label" id="zoomLabel">100%</span><button id="zoomIn" type="button" disabled>+</button><button id="zoomReset" type="button" disabled>Ajuster</button></div>
+<div class="viewer" id="viewer"><canvas id="page"></canvas></div>
+<div class="status" id="status">Chargement du catalogue…</div>
+<div class="toolbar"><button id="open" type="button">Ouvrir le PDF complet</button></div>
+</main>
+<footer>Leonidas Tanger - Catalogue 2027</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+let pdf=null,pageNum=1,rendering=false,queuedPage=null,zoom=1;
+const canvas=document.getElementById('page'),ctx=canvas.getContext('2d',{alpha:false});
+const viewer=document.getElementById('viewer'),status=document.getElementById('status'),counter=document.getElementById('counter');
+const prev=document.getElementById('prev'),next=document.getElementById('next');
+const zoomOut=document.getElementById('zoomOut'),zoomIn=document.getElementById('zoomIn'),zoomReset=document.getElementById('zoomReset'),zoomLabel=document.getElementById('zoomLabel');
+function updateControls(){
+ counter.textContent=`Page ${pageNum} / ${pdf.numPages}`;
+ prev.disabled=pageNum<=1;next.disabled=pageNum>=pdf.numPages;
+ zoomOut.disabled=zoom<=1;zoomIn.disabled=zoom>=2.5;zoomReset.disabled=zoom===1;
+ zoomLabel.textContent=`${Math.round(zoom*100)}%`;
+}
+async function renderPage(n){
+ if(rendering){queuedPage=n;return}
+ rendering=true;
+ try{
+  const page=await pdf.getPage(n),base=page.getViewport({scale:1});
+  const availableWidth=Math.max(260,viewer.clientWidth-4);
+  const fitScale=Math.min(availableWidth/base.width,920/base.width);
+  const viewport=page.getViewport({scale:fitScale*zoom});
+  // Render at device-pixel ratio for sharper text and images on Retina/mobile screens.
+  const outputScale=Math.min(window.devicePixelRatio||1,2.5);
+  canvas.width=Math.ceil(viewport.width*outputScale);
+  canvas.height=Math.ceil(viewport.height*outputScale);
+  canvas.style.width=`${Math.ceil(viewport.width)}px`;
+  canvas.style.height=`${Math.ceil(viewport.height)}px`;
+  await page.render({canvasContext:ctx,viewport,transform:outputScale!==1?[outputScale,0,0,outputScale,0,0]:null}).promise;
+  pageNum=n;updateControls();status.textContent='';
+ }catch(error){console.error(error);status.textContent='Impossible d’afficher cette page. Ouvrez le PDF complet.'}
+ finally{rendering=false;if(queuedPage!==null){const q=queuedPage;queuedPage=null;renderPage(q)}}
+}
+pdfjsLib.getDocument({url:'catalogue.pdf',rangeChunkSize:65536,disableAutoFetch:true,disableStream:false}).promise.then(async doc=>{
+ pdf=doc;updateControls();document.getElementById('open').onclick=()=>window.open('catalogue.pdf','_blank');await renderPage(1);
+}).catch(error=>{console.error(error);status.textContent='Le catalogue ne peut pas être chargé. Vérifiez que catalogue.pdf est bien présent.'});
+prev.onclick=()=>{if(pdf&&pageNum>1)renderPage(pageNum-1)};
+next.onclick=()=>{if(pdf&&pageNum<pdf.numPages)renderPage(pageNum+1)};
+zoomIn.onclick=()=>{if(!pdf||zoom>=2.5)return;zoom=Math.min(2.5,Math.round((zoom+.25)*100)/100);renderPage(pageNum)};
+zoomOut.onclick=()=>{if(!pdf||zoom<=1)return;zoom=Math.max(1,Math.round((zoom-.25)*100)/100);renderPage(pageNum)};
+zoomReset.onclick=()=>{zoom=1;renderPage(pageNum)};
+let resizeTimer;
+window.addEventListener('resize',()=>{if(!pdf)return;clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>renderPage(pageNum),150)});
+</script>
+</body>
+</html>
